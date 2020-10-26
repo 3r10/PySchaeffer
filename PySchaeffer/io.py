@@ -47,8 +47,15 @@ def wav_write(filename,sound):
     f.write(struct.pack('<h',q_sample)) # total number of bytes
   f.close()
 
-# def read_tick_div(tick_div):
 
+def midi_vlq_read(file):
+  is_pending = True
+  value = 0
+  while is_pending:
+    byte = struct.unpack('>B',file.read(1))[0]
+    value = (value<<7)+(byte&127)
+    is_pending = (byte>>7)==1
+  return value
 
 def midi_read(filename):
   # Known errors????
@@ -58,79 +65,61 @@ def midi_read(filename):
   assert 'MThd'==struct.unpack('>4s',f.read(4))[0].decode('UTF-8')
   assert 6==struct.unpack('>I',f.read(4))[0] #chunklen=6
   # Formats
-  # 0 :
+  # 0 : single MTrk chunk
+  # 1 : two or more simultaneous MTrk chunks
+  # 2 : one or more non simultaneous MTrk chunks
   format = struct.unpack('>H',f.read(2))[0]
   n_tracks = struct.unpack('>H',f.read(2))[0]
-  tick_div = read_tick_div(struct.unpack('>H',f.read(2))[0])
-  return tick_div
+  tick_div = struct.unpack('>H',f.read(2))[0]
   # TODO : interpret tick_div
-  tempo = 0.5 # 120 BPM
-# for track_n=1:midi_S.n_tracks
-#     time_n = 0;
-#     mtrk_s = char(struct.unpack(f.read(4,'uint8')');
-#     track_length_n = struct.unpack(f.read(4,'>I');
-#     track_end_n = ftell(file_h)+track_length_n;
-#     track_S.midi_messages_m = zeros(0,5);
-#     while ftell(file_h)<track_end_n
-#         time_n = time_n+midi_vlq_read(file_h);
-#         status_n = struct.unpack(f.read(1,'uint8');
-#         switch status_n
-#         case hex2dec('F0')
-#             % SYSEX
-#             message_length_n = midi_vlq_read(file_h)
-#             struct.unpack(f.read(message_length_n,'uint8');
-#         case hex2dec('FF')
-#             % NON-MIDI
-#             type_n = struct.unpack(f.read(1,'uint8');
-#             message_length_n = midi_vlq_read(file_h);
-#             data_v = struct.unpack(f.read(message_length_n,'uint8');
-#             switch type_n
-#             case hex2dec('51')
-#                 % TEMPO
-#             case hex2dec('58')
-#                 % TIME SIGNATURE
-#             end;
-#         otherwise
-#             if ~bitand(status_n,128)
-#                 status_n = running_status_n;
-#                 fseek(file_h,-1,'cof');
-#             end;
-#             message_n = bitshift(status_n,-4);
-#             switch message_n
-#             case {hex2dec('8') hex2dec('9') hex2dec('A') hex2dec('B')}
-#                 % Note Off, Note On, Aftertouch, Control Change
-#                 key_n = struct.unpack(f.read(1,'uint8');
-#                 value_n = struct.unpack(f.read(1,'uint8');
-#             case  hex2dec('E')
-#                 % Pitch Wheel
-#                 key_n = -1; % all
-#                 value_n = bitshift(struct.unpack(f.read(1,'uint8'),7)+struct.unpack(f.read(1,'uint8');
-#             case {hex2dec('C') hex2dec('D')}
-#                 key_n = -1;
-#                 value_n = struct.unpack(f.read(1,'uint8');
-#             otherwise
-#                 error(sprintf('Unrecognized status byte : 0x%X',status_n));
-#             end;
-#             channel_n = bitand(status_n,15);
-#             track_S.midi_messages_m(end+1,:) = [time_n channel_n message_n key_n value_n];
-#         end;
-#         running_status_n = status_n;
-#     end;
-#     midi_S.tracks_Sv(track_n) = track_S;
-# end;
-# fclose(file_h);
-#
-# function [value_n] = midi_vlq_read(file_h);
-#
-# continue_b = 1;
-# value_n = 0;
-# while continue_b
-#     byte_n = struct.unpack(f.read(1,'uint8');
-#     value_n = bitshift(value_n,7)+bitand(byte_n,127);
-#     continue_b = bitand(byte_n,128);
-# end;
-
-
-if __name__=='__main__':
-  midi = midi_read('mid/file2.mid')
-  print(midi)
+  tempo = 1 # 60 BPM
+  tracks = []
+  for i_track in range(n_tracks):
+    track_messages = []
+    time = 0
+    assert 'MTrk'==struct.unpack('>4s',f.read(4))[0].decode('UTF-8')
+    track_length = struct.unpack('>I',f.read(4))[0]
+    track_end = f.tell()+track_length
+    while f.tell()<track_end:
+      time = time+midi_vlq_read(f)
+      status = struct.unpack('>B',f.read(1))[0]
+      if status==0xF0:
+        # SYSEX
+        message_length = midi_vlq_read(f)
+        for _ in range(message_length):
+          data = struct.unpack('>B',f.read(1))[0]
+      elif status==0xFF:
+        # NON-MIDI
+        type = struct.unpack('>B',f.read(1))[0]
+        message_length = midi_vlq_read(f)
+        for _ in range(message_length):
+          data = struct.unpack('>B',f.read(1))[0]
+        if type==0x51:
+          ... # TEMPO
+        elif type==0x58:
+          ... # TIME SIGNATURE
+      else:
+        if (status>>7)!=1:
+          status = running_status
+          f.seek(-1,1) # 1 means : from current pos
+        message = status>>4
+        if message in [0x08,0x09,0x0A,0x0B]:
+          # Note Off, Note On, Aftertouch, Control Change
+          key = struct.unpack('>B',f.read(1))[0]
+          value = struct.unpack('>B',f.read(1))[0]
+        elif message==0x0E:
+          # Pitch Wheel
+          key = -1 # all
+          value = (struct.unpack('>B',f.read(1))[0]<<7
+                  +struct.unpack('>B',f.read(1))[0])
+        elif message in [0x0C,0x0D]:
+          key = -1
+          value = struct.unpack('>B',f.read(1))
+        else:
+          assert False,f'Unrecognized status byte : 0x{status:02X}'
+        channel = status&15
+        track_messages.append((time,channel,message,key,value))
+      running_status = status
+    tracks.append(track_messages)
+  f.close()
+  return tracks
