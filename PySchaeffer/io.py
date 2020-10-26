@@ -72,7 +72,7 @@ def midi_read(filename):
   n_tracks = struct.unpack('>H',f.read(2))[0]
   tick_div = struct.unpack('>H',f.read(2))[0]
   # TODO : interpret tick_div
-  tempo = 1 # 60 BPM
+  tempo = 0.5 # 120 BPM
   tracks = []
   for i_track in range(n_tracks):
     track_messages = []
@@ -81,7 +81,8 @@ def midi_read(filename):
     track_length = struct.unpack('>I',f.read(4))[0]
     track_end = f.tell()+track_length
     while f.tell()<track_end:
-      time = time+midi_vlq_read(f)
+      # dirty tempo hack
+      time = time+int(midi_vlq_read(f)/tempo)
       status = struct.unpack('>B',f.read(1))[0]
       if status==0xF0:
         # SYSEX

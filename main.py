@@ -10,9 +10,6 @@ if __name__=='__main__':
   tracks = midi_read('mid/harry_potter.mid')
   track_messages = tracks[1]
   notes = midi_track_messages_to_note_durations(track_messages)
-  for i in range(len(notes)):
-    time,key,value,duration = notes[i]
-    notes[i] = (time*2,key,value,duration*2)
   soundtrack = []
   adsr = (50,50,0.6,300)
   amplitudes = [0.5,0.3,0.0,0.1,0.1,0.1,0.1,0.1]

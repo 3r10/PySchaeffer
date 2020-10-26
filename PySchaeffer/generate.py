@@ -67,6 +67,19 @@ def generate_additive_synthesis(duration,frequency,amplitudes):
     sound = add_sound(sound,harmonic,0)
   return sound
 
+def generate_karplus_strong(duration,frequency):
+  """
+  https://en.wikipedia.org/wiki/Karplus%E2%80%93Strong_string_synthesis
+  """
+  sampling_rate = 44100
+  delay = int(sampling_rate/frequency)
+  n_samples = int(duration*sampling_rate/1000)
+  sound = [random.random()*2-1 for _ in range(min(delay,n_samples))]
+  sound.extend([0]*max(0,n_samples-delay))
+  for i in range(delay,n_samples):
+    sound[i] = (sound[i-delay]+sound[i-delay+1])*0.5
+  return sound
+
 
 def generate_dtmf(message,tone_duration=150,silence_duration=100):
   """
