@@ -3,7 +3,6 @@ import math,random,struct
 
 # FILE I/O
 ##########
-
 def wav_write(filename,sound):
   # TODO : stereo???
   # prepare writing :
@@ -104,6 +103,9 @@ def generate_dtmf(message,tone_duration=150,silence_duration=100):
   return amplify(sound,0.5)
 
 if __name__=='__main__':
-  # sound = generate_dtmf('0890711415',250,250)
-  sound = generate_dtmf('0969363900')
-  wav_write('orange_customer_service.wav',amplify(sound,0.1))
+  sound = []
+  sound = add_element(sound,generate_white_noise(500),500)
+  sound = add_element(sound,generate_sine(500,440),1500)
+  soudn = add_element(sound,generate_dtmf('0132567898'),2500)
+  sound = amplify(sound,0.01)
+  wav_write('test.wav',sound)

@@ -11,3 +11,7 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 * Sampling is fixed to 44100Hz.
 * All durations are in ms.
 * Sound data are Python 3 `list`s.
+
+## Conventions
+
+Sounds are Python 3 `list`s of `float` numbers (between `-1.0` and `1.0`)
