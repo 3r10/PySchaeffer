@@ -94,6 +94,52 @@ def amplify(sound,factor,in_place=True):
     sound_out[i] = factor*sound[i]
   return sound_out
 
+def apply_adsr(sound,adsr,in_place=True):
+  """
+  https://en.wikipedia.org/wiki/Envelope_(music)
+  Sustain time is infered from sound length
+  So that attack+decay+"sustain time"+release = sound length in ms
+
+  Parameters
+  ----------
+  sound : list of float
+  asdr : a tuple (a,d,s,r)
+    a : attack (in ms)
+    d : decay (in ms)
+    s : sustain (float factor)
+    r : release (in ms)
+  in_place : returned list (sound_out) and sound are the same
+  Returns
+  -------
+  a list of float
+  """
+  sampling_rate = 44100
+  attack,decay,sustain,release = adsr
+  i_attack = int(attack*sampling_rate/1000)
+  i_decay = int((attack+decay)*sampling_rate/1000)
+  i_sustain = int(len(sound)-release*sampling_rate/1000)
+  if not in_place:
+    sound_out = [0 for _ in len(sound)]
+  else:
+    sound_out = sound
+  i = 0
+  while i<len(sound) and i<i_attack:
+    sound_out[i] = sound[i]*i/i_attack
+    i += 1
+  while i<len(sound) and i<i_decay:
+    factor = ((i_decay-i)+sustain*(i-i_attack))/(i_decay-i_attack)
+    sound_out[i] = factor*sound[i]
+    i += 1
+  while i<len(sound) and i<i_sustain:
+    sound_out[i] = sustain*sound[i]
+    i += 1
+  while i<len(sound):
+    sound_out[i] = sustain*sound[i]*(len(sound)-i)/(len(sound)-i_sustain)
+    i += 1
+  return sound_out
+
+
+
 # SOUND GENERATORS
 ##################
 
@@ -126,12 +172,35 @@ def generate_sine(duration,frequency):
   sampling_rate = 44100
   return [math.cos(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
 
+def generate_additive_synthesis(duration,frequency,amplitudes):
+  """
+  Parameters
+  ----------
+  duration : in ms
+  frequency : in hz
+  amplitudes : list of harmonics' amplitudes (floats)
+    amplitudes[0] : fondamental's amplitude
+    amplitudes[1] : 1st harmonic's amplitude
+    ...
+  Returns
+  -------
+  a list of float
+  """
+  sound = []
+  for i in range(len(amplitudes)):
+    freq = frequency*(i+1)
+    harmonic = generate_sine(duration,freq)
+    harmonic = amplify(harmonic,amplitudes[i])
+    sound = add_sound(sound,harmonic,0)
+  return sound
+
+
 def generate_dtmf(message,tone_duration=150,silence_duration=100):
   """
   https://en.wikipedia.org/wiki/Dual-tone_multi-frequency_signaling
   Parameters
   ----------
-  message : a str (i.e. : '72893A#*')
+  message : a str (i.e. : '60893A#*')
   Returns
   -------
   a list of float
@@ -159,10 +228,46 @@ def generate_dtmf(message,tone_duration=150,silence_duration=100):
       sound = add_sound(sound,generate_sine(tone_duration,freq2),time)
   return amplify(sound,0.5)
 
+# MIDI utils
+############
+
+def midi2frequency(note):
+  """
+  Parameters
+  ----------
+  note : MIDI note (int between 0 and 127)
+  Returns
+  -------
+  a float (frequence)
+  """
+  return 440*2**((note-69)/12)
+
 if __name__=='__main__':
-  sound = []
-  sound = add_sound(sound,generate_white_noise(500),500)
-  sound = add_sound(sound,generate_sine(500,440),1500)
-  soudn = add_sound(sound,generate_dtmf('0132567898'),2500)
-  sound = amplify(sound,0.1)
-  wav_write('test.wav',sound)
+  # tuples time (ms),note (MIDI 0-127),velocity (0-127),duration (ms)
+  notes = [
+    (   0,60,100,400),
+    ( 500,60,100,400),
+    (1000,60,100,400),
+    (1500,62,100,400),
+    (2000,64,100,900),
+    (3000,62,100,900),
+    (4000,60,100,400),
+    (4500,64,100,400),
+    (5000,62,100,400),
+    (5500,62,100,400),
+    (6000,60,100,1900),
+  ]
+
+  soundtrack = []
+  adsr = (50,50,0.6,300)
+  amplitudes = [0.5,0.3,0.0,0.1,0.1,0.1,0.1,0.1]
+  release = adsr[3]
+  for time,note,velocity,duration in notes:
+    freq = midi2frequency(note)
+    sound = generate_additive_synthesis(duration+release,freq,amplitudes)
+    sound = apply_adsr(sound,adsr)
+    sound = amplify(sound,velocity/127)
+    soundtrack = add_sound(soundtrack,sound,time)
+
+  soundtrack = amplify(soundtrack,0.4)
+  wav_write('test.wav',soundtrack)
