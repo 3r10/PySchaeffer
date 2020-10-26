@@ -4,6 +4,16 @@ import math,random,struct
 # FILE I/O
 ##########
 def wav_write(filename,sound):
+  """
+  Writes a mono WAV file
+  Parameters
+  ----------
+  filename : file name
+  sound : list of float (between -1.0 and 1.0, cropped if needed)
+  Returns
+  -------
+  None
+  """
   # TODO : stereo???
   # prepare writing :
   n_channels = 1
@@ -40,21 +50,42 @@ def wav_write(filename,sound):
 
 # SOUND EFFECTS
 ###############
-def add_element(sound,element,time,in_place=True):
+def add_sound(soundtrack,sound,time,in_place=True):
+  """
+  Parameters
+  ----------
+  soundtrack : list of float
+  sound : list of float to be added to soundtrack (zero-padding if needed)
+  time : time stamp (in ms) when it should be added
+  in_place : returned list (soundtrack_out) and soundtrack are the same
+  Returns
+  -------
+  the modified soundtrack_out
+  """
   if not in_place:
-    sound_out = sound[:]
+    soundtrack_out = soundtrack[:]
   else:
-    sound_out = sound
+    soundtrack_out = soundtrack
   sampling_rate = 44100
   i_start = int(time*sampling_rate/1000)
-  n_samples = max(len(sound),i_start+len(element))
-  if n_samples>len(sound):
-    sound_out.extend([0]*(n_samples-len(sound)))
-  for i in range(len(element)):
-    sound_out[i_start+i] += element[i]
-  return sound_out
+  n_samples = max(len(soundtrack),i_start+len(sound))
+  if n_samples>len(soundtrack):
+    soundtrack_out.extend([0]*(n_samples-len(soundtrack)))
+  for i in range(len(sound)):
+    soundtrack_out[i_start+i] += sound[i]
+  return soundtrack_out
 
 def amplify(sound,factor,in_place=True):
+  """
+  Parameters
+  ----------
+  sound : list of float
+  factor : float
+  in_place : returned list (sound_out) and sound are the same
+  Returns
+  -------
+  a list of float
+  """
   if not in_place:
     sound_out = [0 for _ in len(sound)]
   else:
@@ -66,19 +97,45 @@ def amplify(sound,factor,in_place=True):
 # SOUND GENERATORS
 ##################
 
-def generate_sine(duration,frequency):
+def generate_silence(duration):
+  """
+  Parameters
+  ----------
+  duration : in ms
+  Returns
+  -------
+  a list of float
+  """
   sampling_rate = 44100
-  return [math.cos(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
+  return [0 for _ in range((duration*sampling_rate)//1000)]
 
 def generate_white_noise(duration):
   sampling_rate = 44100
   return [random.random()*2-1 for _ in range((duration*sampling_rate)//1000)]
 
-def generate_silence(duration):
+def generate_sine(duration,frequency):
+  """
+  Parameters
+  ----------
+  duration : in ms
+  frequency : in hz
+  Returns
+  -------
+  a list of float
+  """
   sampling_rate = 44100
-  return [0 for _ in range((duration*sampling_rate)//1000)]
+  return [math.cos(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
 
 def generate_dtmf(message,tone_duration=150,silence_duration=100):
+  """
+  https://en.wikipedia.org/wiki/Dual-tone_multi-frequency_signaling
+  Parameters
+  ----------
+  message : a str (i.e. : '72893A#*')
+  Returns
+  -------
+  a list of float
+  """
   sound = []
   #       	1209 Hz 	1336 Hz 	1477 Hz 	1633 Hz
   # 697 Hz 	1 	      2 	      3 	      A
@@ -98,14 +155,14 @@ def generate_dtmf(message,tone_duration=150,silence_duration=100):
     else:
       time = i*(tone_duration+silence_duration)
       freq1,freq2 = frequencies[char]
-      sound = add_element(sound,generate_sine(tone_duration,freq1),time)
-      sound = add_element(sound,generate_sine(tone_duration,freq2),time)
+      sound = add_sound(sound,generate_sine(tone_duration,freq1),time)
+      sound = add_sound(sound,generate_sine(tone_duration,freq2),time)
   return amplify(sound,0.5)
 
 if __name__=='__main__':
   sound = []
-  sound = add_element(sound,generate_white_noise(500),500)
-  sound = add_element(sound,generate_sine(500,440),1500)
-  soudn = add_element(sound,generate_dtmf('0132567898'),2500)
-  sound = amplify(sound,0.01)
+  sound = add_sound(sound,generate_white_noise(500),500)
+  sound = add_sound(sound,generate_sine(500,440),1500)
+  soudn = add_sound(sound,generate_dtmf('0132567898'),2500)
+  sound = amplify(sound,0.1)
   wav_write('test.wav',sound)
