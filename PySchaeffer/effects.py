@@ -1,5 +1,9 @@
+import math
 # SOUND EFFECTS
 ###############
+
+# AMPLITUDE
+
 def amplify(sound,factor,in_place=True):
   """
   Parameters
@@ -61,4 +65,66 @@ def apply_adsr(sound,adsr,in_place=True):
   while i<len(sound):
     sound_out[i] = sustain*sound[i]*(len(sound)-i)/(len(sound)-i_sustain)
     i += 1
+  return sound_out
+
+# FILTERS
+# Design :
+# http://shepazu.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
+
+def design_bpf_biquad(f0,Q):
+  # pulsation :
+  sampling_rate = 44100
+  omega0 = 2*math.pi*f0/sampling_rate
+  alpha = math.sin(omega0)/2/Q
+  b = [alpha,0,-alpha]
+  a = [1+alpha,-2*math.cos(omega0),1-alpha]
+  return b,a
+
+def design_formant_filters(vowel):
+  """
+  https://en.wikipedia.org/wiki/Formant
+  vowel : a char (str)
+  """
+  formants = {
+    'i':(240,2400),
+    'y':(235,2100),
+    'e':(390,2300),
+    'ø':(370,1900),
+    'ɛ':(610,1900),
+    'œ':(585,1710),
+    'a':(850,1610),
+    'ɶ':(820,1530),
+    'ɑ':(750,940),
+    'ɒ':(700,760),
+    'ʌ':(600,1170),
+    'ɔ':(500,700),
+    'ɤ':(460,1310),
+    'o':(360,640),
+    'ɯ':(300,1390),
+    'u':(250,595),
+  }
+  Q = 40
+  f1,f2 = formants[vowel]
+  b1,a1 = design_bpf_biquad(f1,Q)
+  b2,a2 = design_bpf_biquad(f2,Q)
+  return b1,a1,b2,a2
+
+def apply_iir_filter(sound_in,numerator,denominator=[1]):
+  """
+  https://en.wikipedia.org/wiki/Infinite_impulse_response
+  numerator = [b0,b1,...,bP]
+  denominator = [a0,a1,...,aQ]
+  """
+  n_samples = len(sound_in)
+  sound_out = [0]*n_samples
+  for n in range(n_samples):
+    for i in range(len(numerator)):
+      i_in = n-i
+      if i_in>=0:
+        sound_out[n] += numerator[i]*sound_in[i_in]
+    for i in range(1,len(denominator)):
+      i_out = n-i
+      if i_out>=0:
+        sound_out[n] -= denominator[i]*sound_out[i_out]
+    sound_out[n] /= denominator[0]
   return sound_out

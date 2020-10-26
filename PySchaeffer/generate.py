@@ -1,4 +1,4 @@
-import math
+import math,random
 from PySchaeffer.base import *
 from PySchaeffer.effects import *
 
@@ -33,6 +33,17 @@ def generate_sine(duration,frequency):
   """
   sampling_rate = 44100
   return [math.cos(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
+
+def generate_pwm(duration,frequency,duty=0.5):
+  # https://en.wikipedia.org/wiki/Pulse-width_modulation
+  sampling_rate = 44100
+  sound = generate_silence(duration)
+  for i in range(len(sound)):
+    n_cycles = int(i/sampling_rate*frequency)
+    pos_in_cycle = i/sampling_rate-n_cycles/frequency
+    if pos_in_cycle*frequency<duty:
+      sound[i] = 1
+  return sound
 
 def generate_additive_synthesis(duration,frequency,amplitudes):
   """
