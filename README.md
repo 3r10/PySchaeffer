@@ -15,3 +15,27 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 ## Conventions
 
 Sounds are Python 3 `list`s of `float` numbers (between `-1.0` and `1.0`)
+
+## Functions
+
+### Generators
+
+* Silence, white noise, sine, PWM
+* Additive synthesis
+* Karplus-Strong, DTMF
+
+### Effects
+
+* Amplification, ADSR envelope
+* Filters : IIR, formants
+* Convolution : naive and fast (FFT based)
+
+### Analysis
+
+* Discrete Cosine Transform
+* Fast Fourier Transform (and inverse)
+
+### I/O
+
+* MIDI input
+* WAV output

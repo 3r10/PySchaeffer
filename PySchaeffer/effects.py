@@ -1,4 +1,6 @@
 import math
+from PySchaeffer.analysis import *
+
 # SOUND EFFECTS
 ###############
 
@@ -128,3 +130,48 @@ def apply_iir_filter(sound_in,numerator,denominator=[1]):
         sound_out[n] -= denominator[i]*sound_out[i_out]
     sound_out[n] /= denominator[0]
   return sound_out
+
+# CONVOLUTION
+#############
+
+def naively_convolve(input_signal,ir_signal):
+  n_input_signal = len(input_signal)
+  n_ir_signal = len(ir_signal)
+  n_output_signal = n_input_signal+n_ir_signal
+  output_signal = [0]*n_output_signal
+  #
+  for n in range(n_output_signal):
+    for i in range(n_ir_signal):
+      i_in = n-i
+      if 0<=i_in<n_input_signal:
+        output_signal[n] += input_signal[i_in]*ir_signal[i]
+  return output_signal
+
+def fast_convolve(input_signal,ir_signal):
+  n_input_signal = len(input_signal)
+  n_ir_signal = len(ir_signal)
+  n_output_signal = n_input_signal+n_ir_signal
+  output_signal = [0]*n_output_signal
+  # ir_signal power of 2 size :
+  log2_n = 0
+  while 2**log2_n<n_ir_signal:
+    log2_n += 1
+  # including zero-padding necessary for convolution
+  log2_n += 1
+  # FFT size
+  n_fft = 2**log2_n
+  ir_signal += [0]*(n_fft-n_ir_signal)
+  ir_fft = analyse_fft(ir_signal)
+  for i_start in range(0,n_input_signal,n_fft//2):
+    i_end = min(i_start+n_fft//2,n_input_signal)
+    window_signal = input_signal[i_start:i_end]
+    window_signal.extend([0]*(n_fft-len(window_signal)))
+    window_fft = analyse_fft(window_signal)
+    output_fft = [0]*n_fft
+    for i in range(n_fft):
+      output_fft[i] = window_fft[i]*ir_fft[i]
+    output_signal_2 = analyse_inverse_fft(output_fft)
+    i_end = min(i_start+n_fft,n_output_signal)
+    for i in range(i_start,i_end):
+      output_signal[i] += output_signal_2[i-i_start].real
+  return output_signal
