@@ -74,14 +74,13 @@ def generate_additive_synthesis(duration,frequency,amplitudes):
 def generate_modulated_sine(frequency):
   n = len(frequency)
   sample_rate = 44100
-  x = [1]*n
+  phase = 0
   y = [0]*n
   for i in range(1,n):
-    omega = 2*math.pi*frequency[i]/sample_rate
-    c,s = math.cos(omega),math.sin(omega)
-    x[i],y[i] = c*x[i-1]-s*y[i-1],s*x[i-1]+c*y[i-1]
-    d = (x[i]**2+y[i]**2)**0.5
-    x[i],y[i] = x[i]/d,y[i]/d
+    phase += 2*math.pi*frequency[i]/sample_rate
+    if phase>2*math.pi:
+      phase -= 2*math.pi
+    y[i] = math.sin(phase)
   return y
 
 # MISCELLANEOUS
