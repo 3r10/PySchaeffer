@@ -32,7 +32,7 @@ def generate_sine(duration,frequency):
   a list of float
   """
   sampling_rate = 44100
-  return [math.cos(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
+  return [math.sin(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
 
 def generate_pwm(duration,frequency,duty=0.5):
   # https://en.wikipedia.org/wiki/Pulse-width_modulation
@@ -66,6 +66,26 @@ def generate_additive_synthesis(duration,frequency,amplitudes):
     harmonic = amplify(harmonic,amplitudes[i])
     sound = add_sound(sound,harmonic,0)
   return sound
+
+
+# Fréquency modulation
+######################
+
+def generate_modulated_sine(frequency):
+  n = len(frequency)
+  sample_rate = 44100
+  x = [1]*n
+  y = [0]*n
+  for i in range(1,n):
+    omega = 2*math.pi*frequency[i]/sample_rate
+    c,s = math.cos(omega),math.sin(omega)
+    x[i],y[i] = c*x[i-1]-s*y[i-1],s*x[i-1]+c*y[i-1]
+    d = (x[i]**2+y[i]**2)**0.5
+    x[i],y[i] = x[i]/d,y[i]/d
+  return y
+
+# MISCELLANEOUS
+###############
 
 def generate_karplus_strong(duration,frequency):
   """

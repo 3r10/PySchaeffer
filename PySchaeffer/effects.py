@@ -25,6 +25,19 @@ def amplify(sound,factor,in_place=True):
     sound_out[i] = factor*sound[i]
   return sound_out
 
+def normalise(sound,maximum=0.95,in_place=True):
+  maxi = max(max(sound),-min(sound))
+  return amplify(sound,maximum/maxi,in_place)
+
+def shift(sound,constant,in_place=True):
+  if not in_place:
+    sound_out = [0 for _ in len(sound)]
+  else:
+    sound_out = sound
+  for i in range(len(sound)):
+    sound_out[i] = constant+sound[i]
+  return sound_out
+
 def apply_adsr(sound,adsr,in_place=True):
   """
   https://en.wikipedia.org/wiki/Envelope_(music)

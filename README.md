@@ -22,11 +22,12 @@ Sounds are Python 3 `list`s of `float` numbers (between `-1.0` and `1.0`)
 
 * Silence, white noise, sine, PWM
 * Additive synthesis
+* *basic* Frequency Modulation synthesis (vibrato)
 * Karplus-Strong, DTMF
 
 ### Effects
 
-* Amplification, ADSR envelope
+* Amplification, shift, normalisation, ADSR envelope
 * Filters : IIR, formants
 * Convolution : naive and fast (FFT based)
 
