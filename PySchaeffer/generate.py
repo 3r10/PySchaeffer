@@ -5,17 +5,16 @@ from PySchaeffer.effects import *
 # SOUND GENERATORS
 ##################
 
-def generate_silence(duration):
+def generate_constant(duration,value=0.0):
   """
-  Parameters
-  ----------
-  duration : in ms
-  Returns
-  -------
-  a list of float
+  Parameters :
+    duration : in ms
+    value : a float
+  Returns :
+    a list of float
   """
   sampling_rate = 44100
-  return [0 for _ in range((duration*sampling_rate)//1000)]
+  return [value for _ in range((duration*sampling_rate)//1000)]
 
 def generate_white_noise(duration):
   sampling_rate = 44100
@@ -23,13 +22,11 @@ def generate_white_noise(duration):
 
 def generate_sine(duration,frequency):
   """
-  Parameters
-  ----------
-  duration : in ms
-  frequency : in hz
-  Returns
-  -------
-  a list of float
+  Parameters :
+    duration : in ms
+    frequency : in hz
+  Returns :
+    a list of float
   """
   sampling_rate = 44100
   return [math.sin(2*math.pi*frequency*i/sampling_rate) for i in range((duration*sampling_rate)//1000)]
@@ -37,7 +34,7 @@ def generate_sine(duration,frequency):
 def generate_pwm(duration,frequency,duty=0.5):
   # https://en.wikipedia.org/wiki/Pulse-width_modulation
   sampling_rate = 44100
-  sound = generate_silence(duration)
+  sound = generate_constant(duration,0)
   for i in range(len(sound)):
     n_cycles = int(i/sampling_rate*frequency)
     pos_in_cycle = i/sampling_rate-n_cycles/frequency
@@ -73,11 +70,11 @@ def generate_additive_synthesis(duration,frequency,amplitudes):
 
 def generate_modulated_sine(frequency):
   n = len(frequency)
-  sample_rate = 44100
+  sampling_rate = 44100
   phase = 0
   y = [0]*n
   for i in range(1,n):
-    phase += 2*math.pi*frequency[i]/sample_rate
+    phase += 2*math.pi*frequency[i]/sampling_rate
     if phase>2*math.pi:
       phase -= 2*math.pi
     y[i] = math.sin(phase)

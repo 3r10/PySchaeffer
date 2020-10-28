@@ -1,6 +1,6 @@
 
 
-def add_sound(soundtrack,sound,time,in_place=True):
+def add_sound(soundtrack,sound,time=0,in_place=True):
   """
   Parameters
   ----------

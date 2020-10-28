@@ -4,41 +4,74 @@ from PySchaeffer.analysis import *
 # SOUND EFFECTS
 ###############
 
+def create_output(sound,is_in_place):
+  """
+  Utility fonction that provides either a copy or deep copy
+  depending on the boolean is_in_place
+  """
+  if not is_in_place:
+    sound_out = [0 for _ in len(sound)]
+  else:
+    sound_out = sound
+  return sound_out
+
 # AMPLITUDE
 
-def amplify(sound,factor,in_place=True):
+def amplify(sound,factor,is_in_place=True):
   """
   Parameters
   ----------
   sound : list of float
   factor : float
-  in_place : returned list (sound_out) and sound are the same
+  is_in_place : returned list (sound_out) and sound are the same
   Returns
   -------
   a list of float
   """
-  if not in_place:
-    sound_out = [0 for _ in len(sound)]
-  else:
-    sound_out = sound
+  sound_out = create_output(sound,is_in_place)
   for i in range(len(sound)):
     sound_out[i] = factor*sound[i]
   return sound_out
 
-def normalise(sound,maximum=0.95,in_place=True):
+def normalise(sound,maximum=0.95,is_in_place=True):
   maxi = max(max(sound),-min(sound))
-  return amplify(sound,maximum/maxi,in_place)
+  return amplify(sound,maximum/maxi,is_in_place)
 
-def shift(sound,constant,in_place=True):
-  if not in_place:
-    sound_out = [0 for _ in len(sound)]
-  else:
-    sound_out = sound
+def shift(sound,constant,is_in_place=True):
+  sound_out = create_output(sound,is_in_place)
   for i in range(len(sound)):
     sound_out[i] = constant+sound[i]
   return sound_out
 
-def apply_adsr(sound,adsr,in_place=True):
+def apply_envelope(sound,control_points,is_in_place=True):
+  """
+  control_points : list of tuples (relative_time,amplitude)
+    relative_time : between 0.0 (sound start) and 1.0 (sound end)
+    amplitude : amplification factor
+  relative_time data should be in increasing order
+  """
+  sampling_rate = 44100
+  sound_out = create_output(sound,is_in_place)
+  # complete control points
+  if control_points[0][0]>0:
+    control_points[0].insert(0,(0.0,0.0))
+  if control_points[-1][0]<1:
+    control_points[0].append((1.0,0.0))
+  #
+  i_right_point = 1
+  for i in range(len(sound)):
+    # /!\ relative time from 0.0 to 1.0 /!\
+    time = i/len(sound)
+    while control_points[i_right_point][0]<=time:
+      i_right_point += 1
+    left_time,left_amp = control_points[i_right_point-1]
+    right_time,right_amp = control_points[i_right_point]
+    amp = (left_amp*(right_time-time)+right_amp*(time-left_time))\
+          /(right_time-left_time)
+    sound[i] *= amp
+  return sound_out
+
+def apply_adsr(sound,adsr,is_in_place=True):
   """
   https://en.wikipedia.org/wiki/Envelope_(music)
   Sustain time is infered from sound length
@@ -52,35 +85,22 @@ def apply_adsr(sound,adsr,in_place=True):
     d : decay (in ms)
     s : sustain (float factor)
     r : release (in ms)
-  in_place : returned list (sound_out) and sound are the same
+  is_in_place : returned list (sound_out) and sound are the same
   Returns
   -------
   a list of float
   """
   sampling_rate = 44100
+  sound_duration = len(sound)*1000/sampling_rate
   attack,decay,sustain,release = adsr
-  i_attack = int(attack*sampling_rate/1000)
-  i_decay = int((attack+decay)*sampling_rate/1000)
-  i_sustain = int(len(sound)-release*sampling_rate/1000)
-  if not in_place:
-    sound_out = [0 for _ in len(sound)]
-  else:
-    sound_out = sound
-  i = 0
-  while i<len(sound) and i<i_attack:
-    sound_out[i] = sound[i]*i/i_attack
-    i += 1
-  while i<len(sound) and i<i_decay:
-    factor = ((i_decay-i)+sustain*(i-i_attack))/(i_decay-i_attack)
-    sound_out[i] = factor*sound[i]
-    i += 1
-  while i<len(sound) and i<i_sustain:
-    sound_out[i] = sustain*sound[i]
-    i += 1
-  while i<len(sound):
-    sound_out[i] = sustain*sound[i]*(len(sound)-i)/(len(sound)-i_sustain)
-    i += 1
-  return sound_out
+  envelope = [
+    (0.0,0.0),
+    (attack/sound_duration,1.0),
+    ((attack+decay)/sound_duration,sustain),
+    (1.0-release/sound_duration,sustain),
+    (1.0,0.0)
+  ]
+  return apply_envelope(sound,envelope,is_in_place)
 
 # FILTERS
 # Design :
@@ -176,13 +196,16 @@ def fast_convolve(input_signal,ir_signal):
   ir_signal += [0]*(n_fft-n_ir_signal)
   ir_fft = analyse_fft(ir_signal)
   for i_start in range(0,n_input_signal,n_fft//2):
+    # extracting window and zero-padding
     i_end = min(i_start+n_fft//2,n_input_signal)
     window_signal = input_signal[i_start:i_end]
     window_signal.extend([0]*(n_fft-len(window_signal)))
+    # FFT and multiplication
     window_fft = analyse_fft(window_signal)
     output_fft = [0]*n_fft
     for i in range(n_fft):
       output_fft[i] = window_fft[i]*ir_fft[i]
+    # back to time dimension and adding to the output
     output_signal_2 = analyse_inverse_fft(output_fft)
     i_end = min(i_start+n_fft,n_output_signal)
     for i in range(i_start,i_end):
