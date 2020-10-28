@@ -27,7 +27,7 @@ Sounds are Python 3 `list`s of `float` numbers (between `-1.0` and `1.0`)
 
 ### Effects
 
-* Amplification, shift, normalisation, ADSR envelope
+* Amplification, shift, normalisation, envelope, ADSR
 * Filters : IIR, formants
 * Convolution : naive and fast (FFT based)
 
@@ -39,4 +39,4 @@ Sounds are Python 3 `list`s of `float` numbers (between `-1.0` and `1.0`)
 ### I/O
 
 * MIDI input
-* WAV output
+* WAV input/output

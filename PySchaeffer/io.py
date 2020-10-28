@@ -1,6 +1,60 @@
 #!/usr/bin/python3
-
 import struct
+
+def wav_read(filename,channel=0):
+  """
+  Reads a WAV file
+  Parameters
+  ----------
+  filename : file name
+  channel : the channel to be return, default is 0 (left)
+  Returns
+  -------
+  sound : list of float (between -1.0 and 1.0)
+  """
+  # WAV is little endian, so struct format is '<'
+  f = open(filename, 'rb')
+  # 'RIFF' block
+  assert 'RIFF'==struct.unpack('<4s',f.read(4))[0].decode('UTF-8')
+  struct.unpack('<L',f.read(4))[0]
+  assert 'WAVE'==struct.unpack('<4s',f.read(4))[0].decode('UTF-8')
+  # 'fmt ' block
+  assert 'fmt '==struct.unpack('<4s',f.read(4))[0].decode('UTF-8')
+  fmt_size_n = struct.unpack('<L',f.read(4))[0]      # block size = 16
+  assert 1==struct.unpack('<H',f.read(2))[0]         # PCM format
+  n_channels = struct.unpack('<H',f.read(2))[0]      # number of channels
+  sampling_rate = struct.unpack('<L',f.read(4))[0]   # number of samples per second
+  byte_rate = struct.unpack('<L',f.read(4))[0]       # number of bytes per second
+  alignment = struct.unpack('<H',f.read(2))[0]       # block alignment
+  bits_per_sample = struct.unpack('<H',f.read(2))[0] # number of bits per sample
+  # check ' fmt' header
+  assert bits_per_sample in [16,24,32], f'Unimplemented sample size {bits_per_sample}'
+  if ((bits_per_sample//8*n_channels)!=alignment
+     or byte_rate!=sampling_rate*alignment):
+    print('/!\\Warning /!\\ Inconsistent header')
+  if sampling_rate!=44100:
+    print('/!\\Warning /!\\ Sampling frequency is not 44100')
+  # extra 'fmt ' data
+  for i in range(fmt_size_n-16):
+    struct.unpack('<B',f.read(1))[0]
+  # 'data' block
+  assert 'data'==struct.unpack('<4s',f.read(4))[0].decode('UTF-8')
+  n_bytes = struct.unpack('<L',f.read(4))[0] # total number of bytes
+  n_samples = n_bytes//(n_channels*bits_per_sample//8)
+  sound = [0]*n_samples
+  for i in range(n_samples):
+    for i_channel in range(n_channels):
+      if bits_per_sample==16:
+        sample = struct.unpack('<h',f.read(2))[0]
+      elif bits_per_sample==24:
+        b = f.read(3)
+        sample = struct.unpack('<i',b+(b'\0' if b[2]<128 else b'\xff'))[0]
+      elif bits_per_sample==32:
+        sample = struct.unpack('<l',f.read(4))[0]
+      if i_channel==channel:
+        sound[i] = sample/(2**(bits_per_sample-1))
+  f.close()
+  return sound
 
 def wav_write(filename,sound):
   """
@@ -8,7 +62,7 @@ def wav_write(filename,sound):
   Parameters
   ----------
   filename : file name
-  sound : list of float (between -1.0 and 1.0, cropped if needed)
+  sound : list of float (between -1.0 and 1.0, clipped if needed)
   Returns
   -------
   None
@@ -44,83 +98,5 @@ def wav_write(filename,sound):
   max_value = 2**15-1
   for sample in sound:
     q_sample = min(max_value,max(min_value,int(sample*2**15)))
-    f.write(struct.pack('<h',q_sample)) # total number of bytes
+    f.write(struct.pack('<h',q_sample))
   f.close()
-
-
-def midi_vlq_read(file):
-  is_pending = True
-  value = 0
-  while is_pending:
-    byte = struct.unpack('>B',file.read(1))[0]
-    value = (value<<7)+(byte&127)
-    is_pending = (byte>>7)==1
-  return value
-
-def midi_read(filename):
-  # Known errors????
-  # - no tempo change
-  f = open(filename,'rb')
-  #
-  assert 'MThd'==struct.unpack('>4s',f.read(4))[0].decode('UTF-8')
-  assert 6==struct.unpack('>I',f.read(4))[0] #chunklen=6
-  # Formats
-  # 0 : single MTrk chunk
-  # 1 : two or more simultaneous MTrk chunks
-  # 2 : one or more non simultaneous MTrk chunks
-  format = struct.unpack('>H',f.read(2))[0]
-  n_tracks = struct.unpack('>H',f.read(2))[0]
-  tick_div = struct.unpack('>H',f.read(2))[0]
-  # TODO : interpret tick_div
-  tempo = 0.5 # 120 BPM
-  tracks = []
-  for i_track in range(n_tracks):
-    track_messages = []
-    time = 0
-    assert 'MTrk'==struct.unpack('>4s',f.read(4))[0].decode('UTF-8')
-    track_length = struct.unpack('>I',f.read(4))[0]
-    track_end = f.tell()+track_length
-    while f.tell()<track_end:
-      # dirty tempo hack
-      time = time+int(midi_vlq_read(f)/tempo)
-      status = struct.unpack('>B',f.read(1))[0]
-      if status==0xF0:
-        # SYSEX
-        message_length = midi_vlq_read(f)
-        for _ in range(message_length):
-          data = struct.unpack('>B',f.read(1))[0]
-      elif status==0xFF:
-        # NON-MIDI
-        type = struct.unpack('>B',f.read(1))[0]
-        message_length = midi_vlq_read(f)
-        for _ in range(message_length):
-          data = struct.unpack('>B',f.read(1))[0]
-        if type==0x51:
-          ... # TEMPO
-        elif type==0x58:
-          ... # TIME SIGNATURE
-      else:
-        if (status>>7)!=1:
-          status = running_status
-          f.seek(-1,1) # 1 means : from current pos
-        message = status>>4
-        if message in [0x08,0x09,0x0A,0x0B]:
-          # Note Off, Note On, Aftertouch, Control Change
-          key = struct.unpack('>B',f.read(1))[0]
-          value = struct.unpack('>B',f.read(1))[0]
-        elif message==0x0E:
-          # Pitch Wheel
-          key = -1 # all
-          value = (struct.unpack('>B',f.read(1))[0]<<7
-                  +struct.unpack('>B',f.read(1))[0])
-        elif message in [0x0C,0x0D]:
-          key = -1
-          value = struct.unpack('>B',f.read(1))
-        else:
-          assert False,f'Unrecognized status byte : 0x{status:02X}'
-        channel = status&15
-        track_messages.append((time,channel,message,key,value))
-      running_status = status
-    tracks.append(track_messages)
-  f.close()
-  return tracks
