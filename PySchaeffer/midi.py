@@ -1,3 +1,4 @@
+import struct
 # MIDI utils
 ############
 
