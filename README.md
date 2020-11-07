@@ -23,7 +23,7 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 * Silence, white noise, sine, PWM
 * Additive synthesis
 * *basic* Frequency Modulation synthesis (vibrato)
-* Karplus-Strong, DTMF
+* Karplus-Strong, DTMF, Morse code
 
 ### Effects
 
@@ -35,6 +35,7 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 
 * Discrete Cosine Transform
 * Fast Fourier Transform (and inverse)
+* Envelope detector
 
 ### I/O
 

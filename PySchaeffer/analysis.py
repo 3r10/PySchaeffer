@@ -94,3 +94,36 @@ def analyse_inverse_fft(A):
   for i in range(N):
     a2[i] = a[-i]/N
   return a2
+
+# AMPLITUDE ANALYSIS
+####################
+
+def detect_envelope(sound,attack=5,release=-1):
+  """
+  Based on :
+  https://www.musicdsp.org/en/latest/Analysis/97-envelope-detector.html
+  But calculations are based upon energy
+  --
+  Parameters :
+    sound : a list of float
+    attack : an attack time (in ms)
+    release : a release time (in ms)
+      (same as attack if not specified)
+  Returns :
+    a list of float
+  """
+  sampling_rate = 44100
+  if release==-1:
+    release = attack
+  attack_gain = math.exp(-1/(sampling_rate*attack/1000))
+  release_gain = math.exp(-1/(sampling_rate*release/1000))
+  energy = [sound[i]**2 for i in range(len(sound))]
+  energy[0] = 0
+  for i in range(1,len(energy)):
+    if energy[i]>energy[i-1]:
+      energy[i] = attack_gain*energy[i-1]+(1-attack_gain)*energy[i]
+    else:
+      energy[i] = release_gain*energy[i-1]+(1-release_gain)*energy[i]
+  for i in range(len(energy)):
+    energy[i] = energy[i]**0.5
+  return energy

@@ -129,3 +129,29 @@ def generate_dtmf(message,tone_duration=150,silence_duration=100):
       sound = add_sound(sound,generate_sine(tone_duration,freq1),time)
       sound = add_sound(sound,generate_sine(tone_duration,freq2),time)
   return amplify(sound,0.5)
+
+def generate_morse_code(message,unit=75,tone=700):
+  morse_code = {
+    'A':'._','B':'_...','C':'_._.','D':'_..','E':'.','F':'.._.',
+    'G':'__.','H':'....','I':'..','J':'.___','K':'_._',
+    'L':'._..','M':'__','N':'_.','O':'___','P':'.__.',
+    'Q':'__._','R':'._.','S':'...','T':'_','U':'.._',
+    'V':'..._','W':'.__','X':'_.._','Y':'_.__','Z':'__..',
+    '1':'.____','2':'..___','3':'...__','4':'...._','5':'.....',
+    '6':'_....','7':'__...','8':'___..','9':'____.','0':'_____',
+  }
+  durations = {'.':1,'_':3}
+  sound = []
+  for char in message:
+    if char==' ':
+      # already 3 units of silence after a letter -> 7 units
+      sound.extend(generate_constant(unit*4))
+    elif char in morse_code:
+      for ditdah in morse_code[char]:
+        sound.extend(generate_sine(unit*durations[ditdah],tone))
+        sound.extend(generate_constant(unit))
+      # already 1 unit of silence after a letter -> 3 units
+      sound.extend(generate_constant(unit*2))
+    else:
+      print(f'/!\\ Warning : unknown char {char}')
+  return sound
