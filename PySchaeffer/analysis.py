@@ -51,6 +51,13 @@ def analyse_modulus(X):
     modulus_X[i] = (X[i].real**2+X[i].imag**2)**.5
   return modulus_X
 
+def analyse_phase(X):
+  n = len(X)
+  phase_X = [0]*n
+  for i in range(n):
+    phase_X[i] = math.atan2(X[i].imag,X[i].real)
+  return phase_X
+
 def analyse_fft(a):
   """
   Parameters :
@@ -94,6 +101,24 @@ def analyse_inverse_fft(A):
   for i in range(N):
     a2[i] = a[-i]/N
   return a2
+
+# FILTER RESPONSE
+#################
+
+def filter_response(b,a,n_points):
+  response = [0]*n_points
+  for k in range(n_points):
+    omega = k/n_points*math.pi
+    z = math.cos(omega)+math.sin(omega)*1j
+    b_value = 0
+    for i in range(len(b)):
+      b_value += b[i]*(z**i)
+    a_value = 0
+    for i in range(len(a)):
+      a_value += a[i]*(z**i)
+    response[k] = b_value/a_value
+  return response
+
 
 # AMPLITUDE ANALYSIS
 ####################

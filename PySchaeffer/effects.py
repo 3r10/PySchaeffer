@@ -104,16 +104,74 @@ def apply_adsr(sound,adsr,is_in_place=True):
   return apply_envelope(sound,envelope,is_in_place)
 
 # FILTERS
-# Design :
+# Designs :
 # http://shepazu.github.io/Audio-EQ-Cookbook/audio-eq-cookbook.html
 
-def design_bpf_biquad(f0,Q):
+def design_low_pass(f0,Q):
+  # pulsation :
+  sampling_rate = 44100
+  omega0 = 2*math.pi*f0/sampling_rate
+  alpha = math.sin(omega0)/2/Q
+  b = [(1-math.cos(omega0))/2,1-math.cos(omega0),(1-math.cos(omega0))/2]
+  a = [1+alpha,-2*math.cos(omega0),1-alpha]
+  return b,a
+
+def design_high_pass(f0,Q):
+  # pulsation :
+  sampling_rate = 44100
+  omega0 = 2*math.pi*f0/sampling_rate
+  alpha = math.sin(omega0)/2/Q
+  b = [(1+math.cos(omega0))/2,-(1+math.cos(omega0)),(1+math.cos(omega0))/2]
+  a = [1+alpha,-2*math.cos(omega0),1-alpha]
+  return b,a
+
+def design_band_pass(f0,Q):
   # pulsation :
   sampling_rate = 44100
   omega0 = 2*math.pi*f0/sampling_rate
   alpha = math.sin(omega0)/2/Q
   b = [alpha,0,-alpha]
   a = [1+alpha,-2*math.cos(omega0),1-alpha]
+  return b,a
+
+def design_low_shelf(f0,dB_gain):
+  # pulsation :
+  sampling_rate = 44100
+  omega0 = 2*math.pi*f0/sampling_rate
+  cos_omega0 = math.cos(omega0)
+  S = 1
+  A = 10**(dB_gain/40)
+  alpha = math.sin(omega0)/2*math.sqrt((A+1/A)*(1/S-1)+2)
+  b = [
+    A*((A+1)-(A-1)*cos_omega0+2*(A**0.5)*alpha),
+    2*A*((A-1)-(A+1)*cos_omega0),
+    A*((A+1)-(A-1)*cos_omega0-2*(A**0.5)*alpha)
+  ]
+  a = [
+    (A+1)+(A-1)*cos_omega0+2*(A**0.5)*alpha,
+    -2*((A-1)+(A+1)*cos_omega0),
+    (A+1)+(A-1)*cos_omega0-2*(A**0.5)*alpha
+  ]
+  return b,a
+
+def design_high_shelf(f0,dB_gain):
+  # pulsation :
+  sampling_rate = 44100
+  omega0 = 2*math.pi*f0/sampling_rate
+  cos_omega0 = math.cos(omega0)
+  S = 1
+  A = 10**(dB_gain/40)
+  alpha = math.sin(omega0)/2*math.sqrt((A+1/A)*(1/S-1)+2)
+  b = [
+    A*((A+1)+(A-1)*cos_omega0+2*(A**0.5)*alpha),
+    -2*A*((A-1)+(A+1)*cos_omega0),
+    A*((A+1)+(A-1)*cos_omega0-2*(A**0.5)*alpha)
+  ]
+  a = [
+    (A+1)-(A-1)*cos_omega0+2*(A**0.5)*alpha,
+    2*((A-1)-(A+1)*cos_omega0),
+    (A+1)-(A-1)*cos_omega0-2*(A**0.5)*alpha
+  ]
   return b,a
 
 def design_formant_filters(vowel):

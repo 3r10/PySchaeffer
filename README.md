@@ -28,13 +28,15 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 ### Effects
 
 * Amplification, shift, normalisation, envelope, ADSR
-* Filters : IIR, formants
+* Filters : IIR (Bandpass,Hi/Lo-pass, Hi-Lo-shelf designs), formants
 * Convolution : naive and fast (FFT based)
+* Variable (interpolated) delay
 
 ### Analysis
 
 * Discrete Cosine Transform
 * Fast Fourier Transform (and inverse)
+* Filter frequency response
 * Envelope detector
 
 ### I/O
