@@ -22,7 +22,7 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 
 * Silence, white noise, sine, PWM
 * Additive synthesis
-* *basic* Frequency Modulation synthesis (vibrato)
+* Frequency Modulation : phasor, sine, wavetable
 * Karplus-Strong, DTMF, Morse code
 
 ### Effects

@@ -68,17 +68,27 @@ def generate_additive_synthesis(duration,frequency,amplitudes):
 # Fréquency modulation
 ######################
 
-def generate_modulated_sine(frequency):
+def generate_phasor(frequency):
   n = len(frequency)
   sampling_rate = 44100
-  phase = 0
-  y = [0]*n
+  phase = [0]*n
   for i in range(1,n):
-    phase += 2*math.pi*frequency[i]/sampling_rate
-    if phase>2*math.pi:
-      phase -= 2*math.pi
-    y[i] = math.sin(phase)
-  return y
+    phase[i] = phase[i-1]+2*math.pi*frequency[i]/sampling_rate
+    if phase[i]>2*math.pi:
+      phase[i] -= 2*math.pi
+  return phase
+
+def generate_modulated_sine(frequency):
+  phase = generate_phasor(frequency)
+  n = len(phase)
+  return [math.sin(phase[i]) for i in range(n)]
+
+def generate_from_wavetable(frequency,table):
+  # https://en.wikipedia.org/wiki/Wavetable_synthesis
+  phase = generate_phasor(frequency)
+  n = len(phase)
+  n_table = len(table)
+  return [interpolate_at_sample(table,phase[i]/2/math.pi*n_table,True) for i in range(n)]
 
 # MISCELLANEOUS
 ###############

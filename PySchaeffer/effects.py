@@ -1,4 +1,5 @@
 import math
+from PySchaeffer.base import *
 from PySchaeffer.analysis import *
 
 # SOUND EFFECTS
@@ -222,3 +223,20 @@ def fast_convolve(input_signal,ir_signal):
     for i in range(i_start,i_end):
       output_signal[i] += output_signal_2[i-i_start].real
   return output_signal
+
+# TIME EFFECTS
+##############
+
+def apply_delay(sound,delay):
+  """
+  Parameters :
+    sound : list of float
+    delay : list of delays (in ms)
+  """
+  sample_rate = 44100
+  n_samples = len(sound)
+  output = [0 for _ in range(n_samples)]
+  for i in range(n_samples):
+    sample = i-sample_rate*value_at_sample(delay,i)/1000
+    output[i] = interpolate_at_sample(sound,sample)
+  return output
