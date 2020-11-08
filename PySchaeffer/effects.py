@@ -174,46 +174,6 @@ def design_high_shelf(f0,dB_gain):
   ]
   return b,a
 
-def design_formant_filters(vowel):
-  """
-  Not really a design, rather some coefficients found at :
-  https://www.musicdsp.org/en/latest/Filters/110-formant-filter.html
-  --
-  Parameters :
-    vowel : 'a', 'e', 'i', 'o' or 'u'
-  Returns :
-    a tuple (b,a) where b and a are the IIR coefficients to be applied
-  """
-  formant_filters = {
-    'a' : (
-      [8.11044e-6],
-      [1.0,-8.943665402,36.83889529,-92.01697887,154.337906,-181.6233289,
-      151.8651235,-89.09614114,35.10298511,-8.388101016,0.923313471]
-      ),
-    'e' : (
-      [4.36215e-6],
-      [1.0,-8.90438318,36.55179099,-91.05750846,152.422234,-179.1170248,
-      149.6496211,-87.78352223,34.60687431,-8.282228154,0.914150747]
-      ),
-    'i' : (
-      [3.33819e-6],
-      [1.0,-8.893102966,36.49532826,-90.96543286,152.4545478,-179.4835618,
-      150.315433,-88.43409371,34.98612086,-8.407803364,0.932568035]
-      ),
-    'o' : (
-      [1.13572e-6],
-      [1.0,-8.994734087,37.2084849,-93.22900521,156.6929844,-184.596544,
-      154.3755513,-90.49663749,35.58964535,-8.478996281,0.929252233]
-      ),
-    'u' : (
-      [4.09431e-7],
-      [1.0,-8.997322763,37.20218544,-93.11385476,156.2530937,-183.7080141,
-      153.2631681,-89.59539726,35.12454591,-8.338655623,0.910251753]
-      ),
-  }
-  assert vowel in formant_filters
-  return formant_filters[vowel]
-
 def apply_iir_filter(sound_in,numerator,denominator=[1]):
   """
   https://en.wikipedia.org/wiki/Infinite_impulse_response
@@ -297,4 +257,10 @@ def apply_delay(sound,delay):
   for i in range(n_samples):
     sample = i-sample_rate*value_at_sample(delay,i)/1000
     output[i] = interpolate_at_sample(sound,sample)
+  return output
+
+def change_speed(sound,ratio):
+  output = [0]*int(len(sound)/ratio)
+  for i in range(len(output)):
+    output[i] = interpolate_at_sample(sound,i*ratio)
   return output

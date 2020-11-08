@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 import struct
 
-def wav_read(filename,channel=0):
+def read_wav(filename,channel=0):
   """
   Reads a WAV file
   Parameters
@@ -56,7 +56,7 @@ def wav_read(filename,channel=0):
   f.close()
   return sound
 
-def wav_write(filename,sound):
+def write_wav(filename,sound):
   """
   Writes a mono WAV file
   Parameters
