@@ -28,9 +28,9 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 ### Effects
 
 * Amplification, shift, normalisation, envelope, ADSR
-* Filters : IIR (Bandpass,Hi/Lo-pass, Hi-Lo-shelf designs), formants
+* IIR Filters, including designs for Bandpass, Hi/Lo-pass, Hi-Lo-shelf
 * Convolution : naive and fast (FFT based)
-* Variable (interpolated) delay
+* Variable (interpolated) delay, Speed change
 
 ### Analysis
 
@@ -38,6 +38,11 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 * Fast Fourier Transform (and inverse)
 * Filter frequency response
 * Envelope detector
+
+### Speech
+
+* Formant filters (presets).
+* Basic Text-to-Speech using diphones.
 
 ### I/O
 
