@@ -194,6 +194,99 @@ def apply_iir_filter(sound_in,numerator,denominator=[1]):
     sound_out[n] /= denominator[0]
   return sound_out
 
+# REVERB
+########
+
+def apply_ffbcf(sound,n_delay,feedback_b,feedback_a):
+  """
+  Apply a filtered-feedback comb filter (FFBCF) as described in :
+  https://ccrma.stanford.edu/~jos/pasp/Filtered_Feedback_Comb_Filters.html
+  but without the overall gain b0
+  in order to focus on the genericity of the scheme
+  for an overall gain b0 : amplify
+  --
+  Parameters :
+    sound : list of float
+    n_delay : delay in samples (int)
+    feedback_b : feedback numerator (list of float)
+    feedback_a : feedback denominator (list of float)
+  Returns :
+    filtered sound
+  """
+  n_samples = len(sound)
+  output_sound = [0]*n_samples
+  feedback_sound = [0]*n_samples
+  for n in range(n_samples):
+    output_sound[n] = sound[n]
+    # feedback input : delayed output_sound
+    # feedback output : feedback_sound
+    for i in range(len(feedback_b)):
+      feedback_sound[n] += \
+        feedback_b[i]*value_at_sample(output_sound,n-n_delay-i)
+    for i in range(1,len(feedback_a)):
+      feedback_sound[n] -= \
+        feedback_a[i]*value_at_sample(feedback_sound,n-i)
+    feedback_sound[n] /= feedback_a[0]
+    output_sound[n] += feedback_sound[n]
+  return output_sound
+
+def apply_lbcf(sound,N,f,d):
+  """
+  Apply a Schroeder-Moorer lowpass-feedback-comb-filter as described in :
+  https://ccrma.stanford.edu/~jos/pasp/Lowpass_Feedback_Comb_Filter.html
+  --
+  Parameters :
+    sound : list of float
+    N : delay (int)
+    f : feedback (0<=float<1)
+    d : damping (0<=float<1)
+  Returns :
+    filtered sound
+  """
+  assert 0<=f<1 and 0<=d<1
+  feedback_b = [f*(1-d)]
+  feedback_a = [1,-d]
+  output_sound = apply_ffbcf(sound,N,feedback_b,feedback_a)
+  output_sound = ([0]*N)+output_sound[:-N]
+  return output_sound
+
+def apply_freeverb_allpass(sound,N,g):
+  """
+  Apply the freeverb approximation of Allpass filter as described in :
+  https://ccrma.stanford.edu/~jos/pasp/Freeverb_Allpass_Approximation.html
+  --
+  Parameters :
+    sound : list of float
+    N : delay (int)
+    g : gain (float)
+  Returns :
+    filtered sound
+  """
+  # The feedback comb-filter part FBCF(N,g)
+  output_sound = apply_ffbcf(sound,N,[g],[1])
+  # Ad-hoc implémentation of feedforward comb-filter FFCF(N,-1,1+g)
+  n = len(output_sound)-1
+  while n>=0:
+    output_sound[n] = -output_sound[n]
+    if n-N>=0:
+      output_sound[n] += output_sound[n-N]
+    n -= 1
+  return output_sound
+
+def apply_freeverb(sound,f=0.84,d=0.2,g=0.5):
+  """
+  Apply freeverb algorithm as described in :
+  https://ccrma.stanford.edu/~jos/pasp/Freeverb.html
+  """
+  lbcf_delays = [1557,1617,1491,1422,1277,1356,1188,1116]
+  ap_delays = [225,556,441,341]
+  output_sound = [0]*len(sound)
+  for N in lbcf_delays:
+    output_sound = add_sound(output_sound,apply_lbcf(sound,N,f,d))
+  for N in ap_delays:
+    output_sound = apply_freeverb_allpass(output_sound,N,g)
+  return output_sound
+
 # CONVOLUTION
 #############
 

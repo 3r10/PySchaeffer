@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import struct
+import struct,math
 
 def design_formant_filters(vowel):
   """
@@ -41,12 +41,7 @@ def design_formant_filters(vowel):
   assert vowel in formant_filters
   return formant_filters[vowel]
 
-def read_mbrola(filename,is_verbose=False):
-  # unexplained data
-  # substitutions à compléter
-  # décomposer les infos fichiers en infos+ paramètres(en particulier taille de la fenếtre) + copyritht
-  # analyser les doublons de diphones_index
-  # ===
+def read_mbrola_voice(filename,is_verbose=False):
   def read_null_terminated(f):
     string = ''
     is_null = False
@@ -145,11 +140,36 @@ def read_mbrola(filename,is_verbose=False):
   # GO BACK TO SAMPLES
   f.seek(n_bytes_description,0) # from start of file
   samples = []
+  middles = []
   for sample_descr in samples_descr:
     sample = [0]*sample_descr[2]
     for i in range(sample_descr[2]):
       sample[i] = struct.unpack('<h',f.read(2))[0]/2**15
     samples.append(sample)
+    middles.append(sample_descr[0])
   # We should be at the end of the samples
   assert f.tell()==n_bytes_description+n_bytes_diphones
-  return diphones_index,samples
+  f.close()
+  return diphones_index,samples,middles,frame_shift
+
+
+def read_mbrola_pho(filename):
+  phonemes = []
+  with open(filename,'rt',encoding='iso-8859-1') as f:
+    lines = f.read().split('\n')
+  for line in lines:
+    if line!='' and line[0]!=';':
+      elements = line.split(' ')
+      while '' in elements:
+        elements.remove('')
+      if elements!=['']:
+        symbol = elements[0]
+        duration = int(elements[1])
+        assert len(elements)%2==0,elements
+        freqs = []
+        for i in range(1,len(elements)//2):
+          percent_time = int(elements[2*i])
+          freq = int(elements[2*i+1])
+          freqs.append((percent_time,freq))
+        phonemes.append((symbol,duration,freqs))
+  return phonemes
