@@ -29,6 +29,7 @@ In order to **Keep It** as **Simple** and **Stupid** as possible :
 
 * Amplification, shift, normalisation, envelope, ADSR
 * IIR Filters, including designs for Bandpass, Hi/Lo-pass, Hi-Lo-shelf
+* Freeverb and associated filters (filtered feedback comb filters, ...)
 * Convolution : naive and fast (FFT based)
 * Variable (interpolated) delay, Speed change
 
