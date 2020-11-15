@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import struct,math
+import struct
 
 def design_formant_filters(vowel):
   """
@@ -41,76 +41,118 @@ def design_formant_filters(vowel):
   assert vowel in formant_filters
   return formant_filters[vowel]
 
-def read_mbrola_voice(filename,is_verbose=False):
-  def read_null_terminated(f):
-    string = ''
-    is_null = False
-    while not is_null:
-      read = f.read(1)
-      is_null = len(read)==0
-      if not is_null:
-        char = struct.unpack('<1s',read)[0].decode('ISO-8859-1')
-        is_null = (ord(char)==0)
-        if not is_null:
-          string += char
-    return string
+# MBROLA FUNCTIONS
+##################
 
-  # WAV is little endian, so struct format is '<'
+def read_mbrola_null_terminated(f):
+  string = ''
+  is_null = False
+  while not is_null:
+    read = f.read(1)
+    is_null = len(read)==0
+    if not is_null:
+      char = struct.unpack('<1s',read)[0].decode('iso-8859-1')
+      is_null = (ord(char)==0)
+      if not is_null:
+        string += char
+  return string
+
+def read_mbrola_voice(filename,is_verbose=False):
+  basename = filename.split('/')[-1]
+  error = f'ERROR while reading MBROLA voice "{basename}" :'
+  # Little endian, so struct format is '<'
   f = open(filename, 'rb')
-  # Main Header
-  type = struct.unpack('<11s',f.read(11))[0].decode('ISO-8859-1')
-  n_diphones = struct.unpack('<L',f.read(4))[0]
-  unknown_1 = struct.unpack('<L',f.read(4))[0]
+  # MAIN HEADER
+  assert struct.unpack('<6s',f.read(6))[0].decode('ascii')=="MBROLA", f'{error} Unknown format'
+  version = struct.unpack('<5s',f.read(5))[0].decode('ascii') # 2.050, 2.060, 2.069, ...
+  n_diphones = struct.unpack('<H',f.read(2))[0]
+  n_frames_markers = struct.unpack('<H',f.read(2))[0]
+  if n_frames_markers==0:
+    n_frames_markers = struct.unpack('<L',f.read(4))[0]
   n_bytes_diphones = struct.unpack('<L',f.read(4))[0]
   sampling_rate = struct.unpack('<H',f.read(2))[0]
-  unknown_2 = struct.unpack('<H',f.read(2))[0]
+  n_samples_per_frame = struct.unpack('<B',f.read(1))[0]
+  coding = struct.unpack('<B',f.read(1))[0]
+  assert coding==1, f'{error} Coding should be raw'
+  # DESCRIPTION OF DIPHONES
   diphones_index = {}
   samples_descr = []
   is_true_diphone = True
+  n_frames_markers_for_verif = 0
+  n_frames_diphones_for_verif = 0
   for i in range(n_diphones):
-    diphone = read_null_terminated(f),read_null_terminated(f)
+    diphone = read_mbrola_null_terminated(f),read_mbrola_null_terminated(f)
     if is_true_diphone:
-      # Diphone is described by signal
+      # Diphone is described by raw data
       sample_descr = [
-        struct.unpack('<H',f.read(2))[0], # middle
-        struct.unpack('<B',f.read(1))[0], # ????
-        struct.unpack('<B',f.read(1))[0], # nb of frames (will be changed later)
+        struct.unpack('<H',f.read(2))[0], # middle (in samples)
+        struct.unpack('<B',f.read(1))[0], # nb of frames in pitch markers
+        struct.unpack('<B',f.read(1))[0], # nb of frames in raw diphone
       ]
+      n_frames_markers_for_verif += sample_descr[1]
+      n_frames_diphones_for_verif += sample_descr[2]
       if diphone in diphones_index:
         print(f'/!\\ WARNING /!\\ : ambiguous definition of diphone {diphone}')
       diphones_index[diphone] = i
       samples_descr.append(sample_descr)
     else:
       # Diphone is described by another (substitution)
-      substituted_diphone = read_null_terminated(f),read_null_terminated(f)
-      assert diphone in diphones_index, f'diphone {diphone} not found'
+      substituted_diphone = read_mbrola_null_terminated(f),read_mbrola_null_terminated(f)
+      assert diphone in diphones_index, f'{error} diphone {diphone} not found {filename}'
       diphones_index[substituted_diphone] = diphones_index[diphone]
-    if diphone==('_','_'):
+    if diphone==('_','_'): # Last true diphone is "_ _"
       is_true_diphone = False
-  # print(diphones_index)
-  unknown_n_bytes_diphones = math.ceil(unknown_1/4)
-  # %mbrola_S.what2_v = fread(file_h,quid_n_bytes_diphones,'uint8')/2^8*3/2;
-  f.seek(unknown_n_bytes_diphones,1) # from current position
+  assert n_frames_markers==n_frames_markers_for_verif, f'{error} Inconsistent # of frames for markers '
+  assert n_bytes_diphones==2*n_frames_diphones_for_verif*n_samples_per_frame, f'{error} Samples should be 16 bit long'
+  # MARKERS
+  # in a byte : 4 markers of 2 bits (Voiced/Unvoiced,Stationary/Transitory)
+  n_bytes_markers = (n_frames_markers+3)//4 # ceil(n_frames_markers/4)
+  n_start_pos = f.tell()
+  n_frames_read = 0
+  markers = []
+  for sample_descr in samples_descr:
+    marker = []
+    for i_frame in range(sample_descr[1]):
+      if n_frames_read%4==0:
+        data = struct.unpack('<B',f.read(1))[0]
+      marker.append(data&0x03)
+      n_frames_read += 1
+      data = data>>2
+    markers.append(marker)
+  n_end_pos = f.tell()
+  assert (n_end_pos-n_start_pos)==n_bytes_markers
   n_bytes_description = f.tell()
-  # DIPHONE SAMPLES
-  f.seek(n_bytes_diphones,1) # from current position
+  # DIPHONE RAW DATA
+  raw_diphones = []
+  middles = []
+  for sample_descr in samples_descr:
+    n_samples = sample_descr[2]*n_samples_per_frame
+    raw_diphone = [0]*n_samples
+    for i in range(n_samples):
+      raw_diphone[i] = struct.unpack('<h',f.read(2))[0]/2**15
+    raw_diphones.append(raw_diphone)
+    middles.append(sample_descr[0])
+  # We should be at the end of the raw diphones
+  assert f.tell()==n_bytes_description+n_bytes_diphones, f'{error} inconsistent position in file'
   # TRAILER
-  infos = read_null_terminated(f)
-  parameters_text = read_null_terminated(f)
-  copyright = read_null_terminated(f)
+  infos = read_mbrola_null_terminated(f)
+  parameters_text = read_mbrola_null_terminated(f)
+  copyright = read_mbrola_null_terminated(f)
   n_bytes_trailer = f.tell()-n_bytes_description-n_bytes_diphones
+  f.close()
+  # SUMMARY IF VERBOSE
   if is_verbose:
     print('==============')
     print(f"""Infos :
-      file name : {filename.split('/')[-1]}
-      type : {type}
+      file name : {basename}
+      version : {version}
       fs : {sampling_rate}Hz
-      # of diphones_index : {n_diphones}
+      # of diphones : {n_diphones}
         true ones : {len(samples_descr)}
         substituted : {n_diphones-len(samples_descr)}
       # of bytes :
         header+description : {n_bytes_description}
-        diphones_index : {n_bytes_diphones}
+        diphones : {n_bytes_diphones}
         trailer : {n_bytes_trailer}
          -> total : {n_bytes_description+n_bytes_diphones+n_bytes_trailer}""")
     print('==============')
@@ -120,37 +162,7 @@ def read_mbrola_voice(filename,is_verbose=False):
     print('==============')
     print(copyright)
     print('==============')
-  parameters = {}
-  for line in parameters_text[1:].split('\n'):
-    command = line.split('=')
-    if command!=['']:
-      key,value = command
-      while key in parameters:
-        key += '+'
-      if '.' in value or 'e' in value:
-        parameters[key] = float(value)
-      else:
-        parameters[key] = int(value)
-  frame_shift = parameters['FrameShift+']
-  total = 0
-  for sample_descr in samples_descr:
-    sample_descr[2] *= frame_shift # 3rd param is now the sample_descr size
-    total += sample_descr[2]
-  assert n_bytes_diphones==total*2, 'not 16 bits ???'
-  # GO BACK TO SAMPLES
-  f.seek(n_bytes_description,0) # from start of file
-  samples = []
-  middles = []
-  for sample_descr in samples_descr:
-    sample = [0]*sample_descr[2]
-    for i in range(sample_descr[2]):
-      sample[i] = struct.unpack('<h',f.read(2))[0]/2**15
-    samples.append(sample)
-    middles.append(sample_descr[0])
-  # We should be at the end of the samples
-  assert f.tell()==n_bytes_description+n_bytes_diphones
-  f.close()
-  return diphones_index,samples,middles,frame_shift
+  return n_samples_per_frame,diphones_index,raw_diphones,middles,markers
 
 
 def read_mbrola_pho(filename):

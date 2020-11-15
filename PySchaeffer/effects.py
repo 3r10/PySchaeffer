@@ -36,7 +36,10 @@ def amplify(sound,factor,is_in_place=True):
 
 def normalise(sound,maximum=0.95,is_in_place=True):
   maxi = max(max(sound),-min(sound))
-  return amplify(sound,maximum/maxi,is_in_place)
+  factor = 0
+  if maxi!=0:
+    factor = maximum/maxi
+  return amplify(sound,factor,is_in_place)
 
 def shift(sound,constant,is_in_place=True):
   sound_out = create_output(sound,is_in_place)
